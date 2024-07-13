@@ -34,10 +34,16 @@ ENGINE_API EngineSystemManager  Engine;
 EngineSystemManager::EngineSystemManager(void) : 
     sceneMain(nullptr),
     sceneOverlay(nullptr),
+    cameraController(nullptr),
+    
+    mIsProfilerEnabled(false),
     
     mIsConsoleEnabled(false),
-    mShowConsoleBackPanel(false),
-    mConsoleCloseAfterCommandEntered(false),
+    mShowConsoleBackPanel(true),
+    mConsoleCloseAfterCommandEntered(true),
+    mConsoleDoFadeOutTexts(true),
+    
+    mConsoleFadeOutTimer(700),
     
     mConsolePrompt("-"),
     mConsoleString(""),
@@ -62,9 +68,9 @@ EngineSystemManager::EngineSystemManager(void) :
 
 void EngineSystemManager::SetHeightFieldValues(float* heightField, unsigned int width, unsigned int height, float value) {
     
-    for (int x=0; x < width; x ++) {
+    for (unsigned int x=0; x < width; x ++) {
         
-        for (int z=0; z < height; z ++) {
+        for (unsigned int z=0; z < height; z ++) {
             
             unsigned int index = z * width + x;
             
@@ -81,11 +87,15 @@ void EngineSystemManager::SetHeightFieldValues(float* heightField, unsigned int 
 
 void EngineSystemManager::SetColorFieldValues(glm::vec3* colorField, unsigned int width, unsigned int height, Color color) {
     
-    for (int x=0; x < width; x ++) {
+    for (unsigned int x=0; x < width; x ++) {
         
-        for (int z=0; z < height; z ++) {
+        for (unsigned int z=0; z < height; z ++) {
             
             unsigned int index = z * width + x;
+            
+            color.r = Random.Range(0, 100) * 0.0001f;
+            color.g = Random.Range(0, 100) * 0.0001f;
+            color.b = Random.Range(0, 100) * 0.0001f;
             
             colorField[index] = glm::vec3(color.r, color.g, color.b);
             
@@ -102,9 +112,9 @@ void EngineSystemManager::AddHeightFieldFromPerlinNoise(float* heightField, unsi
                                                         float noiseWidth, float noiseHeight, 
                                                         float noiseMul, int offsetX, int offsetZ) {
     
-    for (int x=0; x < width; x ++) {
+    for (unsigned int x=0; x < width; x ++) {
         
-        for (int z=0; z < height; z ++) {
+        for (unsigned int z=0; z < height; z ++) {
             
             float xCoord = ((float)x + offsetX) * noiseWidth;
             float zCoord = ((float)z + offsetZ) * noiseHeight;
@@ -113,7 +123,35 @@ void EngineSystemManager::AddHeightFieldFromPerlinNoise(float* heightField, unsi
             
             unsigned int index = z * width + x;
             
-            heightField[index] += noise;
+            heightField[index] += Math.Round( (noise * 10.0) ) * 0.1;
+            
+            continue;
+        }
+        
+        continue;
+    }
+    
+    return;
+}
+
+void EngineSystemManager::AverageHeightFieldFromPerlinNoise(float* heightField, unsigned int width, unsigned int height, 
+                                                            float noiseWidth, float noiseHeight, 
+                                                            float noiseMul, int offsetX, int offsetZ) {
+    
+    for (unsigned int x=0; x < width; x ++) {
+        
+        for (unsigned int z=0; z < height; z ++) {
+            
+            float xCoord = ((float)x + offsetX) * noiseWidth;
+            float zCoord = ((float)z + offsetZ) * noiseHeight;
+            
+            float noise = Random.Perlin(xCoord, 0, zCoord) * noiseMul;
+            
+            unsigned int index = z * width + x;
+            
+            float currentHeight = (heightField[index] + noise) / 2;
+            
+            heightField[index] = Math.Round( (currentHeight * 10.0) ) * 0.1;
             
             continue;
         }
@@ -128,9 +166,9 @@ void EngineSystemManager::GenerateColorFieldFromHeightField(glm::vec3* colorFiel
                                                             unsigned int width, unsigned int height, 
                                                             Color low, Color high, float bias) {
     
-    for (int x=0; x < width; x ++) {
+    for (unsigned int x=0; x < width; x ++) {
         
-        for (int z=0; z < height; z ++) {
+        for (unsigned int z=0; z < height; z ++) {
             
             unsigned int index = z * width + x;
             
@@ -145,6 +183,14 @@ void EngineSystemManager::GenerateColorFieldFromHeightField(glm::vec3* colorFiel
             if (heightBias > 1) heightBias = 1;
             
             color = Colors.Lerp(low, high, heightBias);
+            
+            float uniformVariantR = (Random.Range(0, 100) * 0.00001f) - (Random.Range(0, 10) * 0.00001f);
+            float uniformVariantG = uniformVariantR;
+            float uniformVariantB = uniformVariantR;
+            
+            color.r += uniformVariantR;
+            color.g += uniformVariantG;
+            color.b += uniformVariantB;
             
             // Apply the final color
             colorField[index] = glm::vec3( color.r, color.g, color.b );
@@ -162,9 +208,9 @@ void EngineSystemManager::SetColorFieldFromPerlinNoise(glm::vec3* colorField, un
                                                        float noiseWidth, float noiseHeight, float noiseThreshold, 
                                                        Color first, Color second, int offsetX, int offsetZ) {
     
-    for (int x=0; x < width; x ++) {
+    for (unsigned int x=0; x < width; x ++) {
         
-        for (int z=0; z < height; z ++) {
+        for (unsigned int z=0; z < height; z ++) {
             
             float xCoord = ((float)x + offsetX) * noiseWidth;
             float zCoord = ((float)z + offsetZ) * noiseHeight;
@@ -193,9 +239,9 @@ void EngineSystemManager::AddColorFieldSnowCap(glm::vec3* colorField, float* hei
                                                unsigned int width, unsigned int height, 
                                                Color capColor, float beginHeight, float bias) {
     
-    for (int x=0; x < width; x ++) {
+    for (unsigned int x=0; x < width; x ++) {
         
-        for (int z=0; z < height; z ++) {
+        for (unsigned int z=0; z < height; z ++) {
             
             unsigned int index = z * width + x;
             
@@ -236,33 +282,57 @@ Mesh* EngineSystemManager::CreateMeshFromHeightField(float* heightField, glm::ve
 void EngineSystemManager::AddHeightFieldToMesh(Mesh* mesh, 
                                                float* heightField, glm::vec3* colorField, 
                                                unsigned int width, unsigned int height, 
-                                               float offsetX, float offsetZ) {
+                                               float offsetX, float offsetZ, 
+                                               unsigned int subTessX, unsigned int subTessZ) {
     
-    for (unsigned int x=0; x < width-1; x ++) {
+    unsigned int fieldWidth = (width / subTessX) - 1;
+    unsigned int fieldHeight = (height / subTessZ) - 1;
+    
+    unsigned int ww = width;
+    unsigned int hh = height;
+    
+    float sx = 1.0f;
+    float sz = 1.0f;
+    
+    if (subTessX > 1) 
+        sx = subTessX * 4.0f;
+    
+    if (subTessX > 1) 
+        sz = subTessZ * 4.0f;
+    
+    for (unsigned int x=0; x < fieldWidth; x ++) {
         
-        for (unsigned int z=0; z < height-1; z ++) {
+        for (unsigned int z=0; z < fieldHeight; z ++) {
+            
+            unsigned int xa = x * subTessX;
+            unsigned int za = z * subTessZ;
             
             // Get height values
-            float yyA = heightField[ z    * width +  x   ];
-            float yyB = heightField[ z    * width + (x+1)];
-            float yyC = heightField[(z+1) * width + (x+1)];
-            float yyD = heightField[(z+1) * width +  x   ];
+            float yyA = heightField[ za    * ww +  xa   ];
+            float yyB = heightField[ za    * ww + (xa+1)];
+            float yyC = heightField[(za+1) * ww + (xa+1)];
+            float yyD = heightField[(za+1) * ww +  xa   ];
             
-            glm::vec3 cA = colorField[ z    * width +  x   ];
-            glm::vec3 cB = colorField[ z    * width + (x+1)];
-            glm::vec3 cC = colorField[(z+1) * width + (x+1)];
-            glm::vec3 cD = colorField[(z+1) * width +  x   ];
+            //glm::vec3 cA = colorField[ za    * ww +  xa   ];
+            //glm::vec3 cB = colorField[ za    * ww + (xa+1)];
+            //glm::vec3 cC = colorField[(za+1) * ww + (xa+1)];
+            //glm::vec3 cD = colorField[(za+1) * ww +  xa   ];
+            
+            glm::vec3 cA = colorField[za * ww + xa];
+            glm::vec3 cB = colorField[za * ww + xa];
+            glm::vec3 cC = colorField[za * ww + xa];
+            glm::vec3 cD = colorField[za * ww + xa];
             
             // Calculate chunk position and offset
-            float xx = ( ( ( (float)x + offsetX) - (float)width  / 2) / 2) + 0.25;
-            float zz = ( ( ( (float)z + offsetZ) - (float)height / 2) / 2) + 0.25;
+            float xx = ( ( ( (float)x + offsetX) - (float)ww / 2) / 2) + 0.25;
+            float zz = ( ( ( (float)z + offsetZ) - (float)hh / 2) / 2) + 0.25;
             
             // Generate quad
             Vertex vertex[4];
-            vertex[0] = Vertex( xx,   yyA, zz,    cA.x, cA.y, cA.z,   0, 1, 0,  0, 0 );
-            vertex[1] = Vertex( xx+1, yyB, zz,    cB.x, cB.y, cB.z,   0, 1, 0,  1, 0 );
-            vertex[2] = Vertex( xx+1, yyC, zz+1,  cC.x, cC.y, cC.z,   0, 1, 0,  1, 1 );
-            vertex[3] = Vertex( xx,   yyD, zz+1,  cD.x, cD.y, cD.z,   0, 1, 0,  0, 1 );
+            vertex[0] = Vertex( xx,    yyA, zz,     cA.x, cA.y, cA.z,   0, 1, 0,  0, 0 );
+            vertex[1] = Vertex( xx+sx, yyB, zz,     cB.x, cB.y, cB.z,   0, 1, 0,  1, 0 );
+            vertex[2] = Vertex( xx+sx, yyC, zz+sz,  cC.x, cC.y, cC.z,   0, 1, 0,  1, 1 );
+            vertex[3] = Vertex( xx,    yyD, zz+sz,  cD.x, cD.y, cD.z,   0, 1, 0,  0, 1 );
             
             Vertex vertA = vertex[0];
             Vertex vertB = vertex[1];
@@ -359,7 +429,7 @@ void EngineSystemManager::AddMeshText(GameObject* overlayObject, float xPos, flo
     for (unsigned int i=0; i < text.size(); i++)
         AddMeshSubSprite(overlayObject, xPos + i, yPos, width, height, text[i], textColor);
     
-    meshPtr->UploadToGPU();
+    meshPtr->Load();
     
     return;
 }
@@ -434,12 +504,21 @@ void EngineSystemManager::Initiate() {
     shaders.sky           = Resources.CreateShaderFromTag("sky");
     
     // Load default meshes
+    meshes.grassHorz       = Resources.CreateMeshFromTag("grassHorz");
+    meshes.grassVert       = Resources.CreateMeshFromTag("grassVert");
+    
+    meshes.stemHorz        = Resources.CreateMeshFromTag("stemHorz");
+    meshes.stemVert        = Resources.CreateMeshFromTag("stemVert");
+    
+    meshes.wallHorizontal  = Resources.CreateMeshFromTag("wallh");
+    meshes.wallVertical    = Resources.CreateMeshFromTag("wallv");
+    
+    meshes.log             = Resources.CreateMeshFromTag("log");
+    
     meshes.cube            = Resources.CreateMeshFromTag("cube");
     meshes.chunk           = Resources.CreateMeshFromTag("chunk");
     meshes.plain           = Resources.CreateMeshFromTag("plain");
     meshes.sphere          = Resources.CreateMeshFromTag("sphere");
-    meshes.wallHorizontal  = Resources.CreateMeshFromTag("wallh");
-    meshes.wallVertical    = Resources.CreateMeshFromTag("wallv");
     
     // Prevent the meshes from being garbage collected
     meshes.cube->isShared            = true;
@@ -485,8 +564,7 @@ void EngineSystemManager::Initiate() {
     sceneOverlay->camera->clipNear = -100;
     
     // Console panel overlay
-    
-    mConsolePanelObject = CreateOverlayPanelRenderer(20, -8, 10000, 10, "panel_blue");
+    mConsolePanelObject = CreateOverlayPanelRenderer(200, -8, 5000, 10, "panel_blue");
     MeshRenderer* panelRenderer = mConsolePanelObject->GetComponent<MeshRenderer>();
     sceneOverlay->AddMeshRendererToSceneRoot( panelRenderer, RENDER_QUEUE_BACKGROUND );
     mConsolePanelObject->isActive = false;
@@ -495,6 +573,7 @@ void EngineSystemManager::Initiate() {
     panelRenderer->material->ambient.g = alphaBlend;
     
     Panel* panel = mConsolePanelObject->GetComponent<Panel>();
+    panel->canvas.anchorRight = false;
     panel->canvas.anchorTop = false;
     
     // Initiate console input text
@@ -513,7 +592,7 @@ void EngineSystemManager::Initiate() {
     
     // Initiate console text elements
     
-    for (int i=0; i < CONSOLE_NUMBER_OF_ELEMENTS; i++) {
+    for (unsigned int i=0; i < CONSOLE_NUMBER_OF_ELEMENTS; i++) {
         
         mConsoleTextObjects[i] = CreateOverlayTextRenderer(0, 0, "", 9, Colors.MakeGrayScale(0.87), "font");
         
@@ -521,7 +600,7 @@ void EngineSystemManager::Initiate() {
         meshRenderer->material->EnableBlending();
         meshRenderer->material->SetBlending(BLEND_SRC_ALPHA, BLEND_ONE_MINUS_SRC_ALPHA);
         
-        sceneOverlay->AddMeshRendererToSceneRoot( meshRenderer );
+        sceneOverlay->AddMeshRendererToSceneRoot( meshRenderer, RENDER_QUEUE_OVERLAY );
         
         mConsoleText[i] = mConsoleTextObjects[i]->GetComponent<Text>();
         mConsoleText[i]->canvas.anchorTop = false;
@@ -529,7 +608,26 @@ void EngineSystemManager::Initiate() {
         mConsoleText[i]->canvas.x = 0;
         mConsoleText[i]->canvas.y = -(2 * i + 4);
         
-        continue;
+    }
+    
+    // Initiate the profiler text elements
+    
+    for (unsigned int i=0; i < PROFILER_NUMBER_OF_ELEMENTS; i++) {
+        
+        mProfilerTextObjects[i] = CreateOverlayTextRenderer(0, 0, "", 9, Colors.MakeGrayScale(0.87), "font");
+        
+        MeshRenderer* meshRenderer = mProfilerTextObjects[i]->GetComponent<MeshRenderer>();
+        meshRenderer->material->EnableBlending();
+        meshRenderer->material->SetBlending(BLEND_SRC_ALPHA, BLEND_ONE_MINUS_SRC_ALPHA);
+        
+        sceneOverlay->AddMeshRendererToSceneRoot( meshRenderer, RENDER_QUEUE_OVERLAY );
+        
+        mProfilerText[i] = mProfilerTextObjects[i]->GetComponent<Text>();
+        mProfilerText[i]->canvas.anchorTop = true;
+        
+        mProfilerText[i]->canvas.x = 0;
+        mProfilerText[i]->canvas.y = (2 * i + 4);
+        
     }
     
     return;

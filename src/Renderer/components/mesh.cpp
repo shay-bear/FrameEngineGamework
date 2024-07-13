@@ -17,7 +17,10 @@ Mesh::Mesh() :
     mPrimitive(GL_TRIANGLES),
     
     mVertexBufferSz(0),
-    mIndexBufferSz(0)
+    mIndexBufferSz(0),
+    mMaxSize(0),
+    
+    mAreBuffersAllocated(false)
 {
     AllocateBuffers(1024);
     
@@ -187,7 +190,7 @@ int Mesh::AddSubMesh(float x, float y, float z, std::vector<Vertex>& vrtxBuffer,
             }
             
             if (doUploadToGpu) 
-                UploadToGPU();
+                Load();
             
             return -1;
         }
@@ -222,7 +225,7 @@ int Mesh::AddSubMesh(float x, float y, float z, std::vector<Vertex>& vrtxBuffer,
     }
     
     if (doUploadToGpu) 
-        UploadToGPU();
+        Load();
     
     return startVertex;
 }
@@ -250,7 +253,7 @@ bool Mesh::RemoveSubMesh(unsigned int index) {
     return true;
 }
 
-bool Mesh::CopySubMesh(unsigned int index, SubMesh& mesh) {
+bool Mesh::GetSubMesh(unsigned int index, SubMesh& mesh) {
     
     if (index >= mSubMesh.size()) 
         return false;
@@ -263,13 +266,13 @@ bool Mesh::CopySubMesh(unsigned int index, SubMesh& mesh) {
     for (std::vector<Index>::iterator it = mIndexBuffer.begin() + sourceMesh.indexBegin; it != mIndexBuffer.begin() + sourceMesh.indexBegin + sourceMesh.indexCount; ++it) 
         mesh.indexBuffer.push_back(*it);
     
-    mesh.vertexCount = sourceMesh.vertexCount;
-    mesh.indexCount  = sourceMesh.indexCount;
+    mesh.vertexCount += sourceMesh.vertexCount;
+    mesh.indexCount  += sourceMesh.indexCount;
     
     return true;
 }
 
-bool Mesh::CopySubMesh(unsigned int index, std::vector<Vertex>& vrtxBuffer, std::vector<Index>& indxBuffer) {
+bool Mesh::GetSubMesh(unsigned int index, std::vector<Vertex>& vrtxBuffer, std::vector<Index>& indxBuffer) {
     
     if (index >= mSubMesh.size()) 
         return false;
@@ -330,6 +333,30 @@ bool Mesh::ChangeSubMeshColor(unsigned int index, Color newColor) {
     return true;
 }
 
+bool Mesh::ChangeSubMeshPoints(unsigned int index, std::vector<glm::vec3> points) {
+    
+    std::vector<Vertex> destMesh;
+    SubMesh sourceMesh = mSubMesh[index];
+    
+    for (unsigned int i=0; i < sourceMesh.vertexCount; i++) {
+        
+        mVertexBuffer[i].x = points[i].x;
+        mVertexBuffer[i].y = points[i].y;
+        mVertexBuffer[i].z = points[i].z;
+        
+        destMesh.push_back(mVertexBuffer[i]);
+        
+        if (points.size() >= i) 
+            return true;
+        
+    }
+    
+    //glBindVertexArray(mVertexArray);
+    //glBufferSubData(GL_ARRAY_BUFFER, sourceMesh.vertexBegin * sizeof(Vertex), sourceMesh.vertexCount * sizeof(Vertex), &destMesh[0]);
+    
+    return true;
+}
+
 void Mesh::ClearSubMeshes(void) {
     mSubMesh.clear();
     mVertexBuffer.clear();
@@ -337,9 +364,28 @@ void Mesh::ClearSubMeshes(void) {
     return;
 }
 
-void Mesh::UploadToGPU(void) {
-    mVertexBufferSz = mVertexBuffer.size();
-    mIndexBufferSz  = mIndexBuffer.size();
+void Mesh::Load(void) {
+    
+    /*
+    
+    if (!mAreBuffersAllocated) {
+        
+        mVertexBufferSz = mVertexBuffer.size();
+        mIndexBufferSz  = mIndexBuffer.size();
+        
+        if (mVertexBufferSz > mIndexBufferSz) {
+            
+            AllocateBuffers( mVertexBufferSz );
+            
+        } else {
+            
+            AllocateBuffers( mIndexBufferSz );
+            
+        }
+        
+    }
+    
+    */
     
     glBindVertexArray(mVertexArray);
     
@@ -348,7 +394,28 @@ void Mesh::UploadToGPU(void) {
     
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mBufferIndex);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIndexBufferSz * sizeof(Index), &mIndexBuffer[0], GL_STATIC_DRAW);
+    
+    mAreBuffersAllocated = true;
+    
     return;
+}
+
+void Mesh::Unload(void) {
+    /*
+    
+    if (!mAreBuffersAllocated) 
+        return;
+    */
+    
+    FreeBuffers();
+    
+    mAreBuffersAllocated = false;
+    
+    return;
+}
+
+bool Mesh::CheckIsAllocatedOnGPU(void) {
+    return mAreBuffersAllocated;
 }
 
 unsigned int Mesh::GetNumberOfVertices(void) {
@@ -411,6 +478,20 @@ void Mesh::CalculateNormals(void) {
         mVertexBuffer[i+2].nx = -normal.x;
         mVertexBuffer[i+2].ny = -normal.y;
         mVertexBuffer[i+2].nz = -normal.z;
+        
+        continue;
+    }
+    
+    return;
+}
+
+void Mesh::SetNormals(glm::vec3 normals) {
+    
+    for (unsigned int i=0; i < mVertexBufferSz; i++) {
+        
+        mVertexBuffer[i].nx = normals.x;
+        mVertexBuffer[i].ny = normals.y;
+        mVertexBuffer[i].nz = normals.z;
         
         continue;
     }

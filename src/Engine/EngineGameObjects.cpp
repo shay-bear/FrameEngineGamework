@@ -121,7 +121,7 @@ GameObject* EngineSystemManager::CreateSky(std::string meshTagName, Color colorL
         
         skyMesh->SetVertex(i, vertex);
     }
-    skyMesh->UploadToGPU();
+    skyMesh->Load();
     
     GameObject* skyObject = CreateGameObject();
     skyObject->name = "sky";
@@ -213,7 +213,7 @@ GameObject* EngineSystemManager::CreateOverlayTextRenderer(int x, int y, std::st
     // Sprite sheet material
     Destroy<Material>( overlayRenderer->material );
     overlayRenderer->material = Resources.CreateMaterialFromTag( materialTag );
-    overlayRenderer->material->ambient  = Color(0.58f, 0, 0);
+    overlayRenderer->material->ambient = Color(0.58f, 1, 0);
     overlayRenderer->material->shader = shaders.UI;
     
     overlayRenderer->material->SetBlending(BLEND_ONE, BLEND_ONE_MINUS_SRC_ALPHA);
@@ -263,7 +263,7 @@ GameObject* EngineSystemManager::CreateOverlayPanelRenderer(int x, int y, int wi
     
     overlayMesh->AddPlain(0, 0, 0, height, width, Colors.white, 1, 1);
     
-    overlayMesh->UploadToGPU();
+    overlayMesh->Load();
     
     return overlayObject;
 }

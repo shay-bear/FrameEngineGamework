@@ -10,21 +10,22 @@
 - Rendering
   - Simple textured mesh renderer
   - Point and directional lights
+  - Text rendering via sprite sheet
 
 - Physics support by <a href="https://github.com/DanielChappuis/reactphysics3d">ReactPhysics3D</a>⁭
   - Rigid body simulation
   - Terrain height field mapping
-  - Much more
+  - <a href="https://github.com/DanielChappuis/reactphysics3d/blob/master/documentation/UserDocumentation.md">Much more...</a>⁭
 
 - ActorAI
   - Psudo-genetics based actor generation
   - Neural network / state machine hybrid for actor personality
+  - Updated on a separate thread
 
 - Resource management
+  - Resource files are loaded automatically at startup
   - Image: PNG BMP
   - Models: OBJ
-
-- Multithreading
 
 
 <br><br/>
@@ -73,7 +74,7 @@ Links to the latest version of these libraries could be found below. Note: The l
 
 
 ## Architecture
- This engine has many sub systems which are split up into several dynamic libraries. The engine core and the user application code are located in separate dynamic libraries with a runtime executable to launch the application. The physics engine, ReactPhysics3D, is contained in it's own dynamic library. External resources are located in a directory named 'data' in the working directory of the runtime executable. These resources include models, textures and shaders that are loaded automatically by the engine`s resource manager.
+ This engine has many sub systems which are split up into several dynamic libraries. The engine core and the user application code are located in separate dynamic libraries with a runtime executable to launch the application. The physics engine, ReactPhysics3D, is contained in it's own dynamic library. External resources are located in a directory named 'core' in the working directory of the runtime executable. These resources include models, textures and shaders that are loaded automatically by the engine`s resource manager.
 
 
 <br><br/>
@@ -89,7 +90,7 @@ The `Start()` function will be called once during application initiation while `
 
 
 ## Examples
-Below are a few examples covering the use and interaction of objects and components in the framework
+Below are a few examples covering the use of objects and components in the framework
 
 [Game objects](https://github.com/RetroBytes32/FrameEngineGamework/wiki/Game-objects)
 <br>

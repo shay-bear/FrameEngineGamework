@@ -24,6 +24,34 @@ void EngineSystemManager::DisableConsole(void) {
     return;
 }
 
+bool EngineSystemManager::CheckIsConsoleActive(void) {
+    return mIsConsoleEnabled;
+}
+
+void EngineSystemManager::EnableProfiler(void) {
+    
+    mIsProfilerEnabled = true;
+    
+    for (uint8_t i=0; i < PROFILER_NUMBER_OF_ELEMENTS; i++) 
+        mProfilerTextObjects[i]->isActive = true;
+    
+    return;
+}
+
+void EngineSystemManager::DisableProfiler(void) {
+    
+    mIsProfilerEnabled = false;
+    
+    for (uint8_t i=0; i < PROFILER_NUMBER_OF_ELEMENTS; i++) 
+        mProfilerTextObjects[i]->isActive = false;
+    
+    return;
+}
+
+bool EngineSystemManager::CheckIsProfilerActive(void) {
+    return mIsProfilerEnabled;
+}
+
 void EngineSystemManager::EnableConsoleBackPanel(void) {
     mShowConsoleBackPanel = true;
     return;
@@ -41,6 +69,21 @@ void EngineSystemManager::EnableConsoleCloseOnReturn(void) {
 
 void EngineSystemManager::DisableConsoleCloseOnReturn(void) {
     mConsoleCloseAfterCommandEntered = false;
+    return;
+}
+
+void EngineSystemManager::EnableConsoleFadeOutTextElements(void) {
+    mConsoleDoFadeOutTexts = true;
+    return;
+}
+
+void EngineSystemManager::DisableConsoleFadeOutTextElements(void) {
+    mConsoleDoFadeOutTexts = false;
+    return;
+}
+
+void EngineSystemManager::SetConsoleFadeOutTimer(unsigned int numberOfFrames) {
+    mConsoleFadeOutTimer = numberOfFrames;
     return;
 }
 
@@ -91,7 +134,7 @@ void EngineSystemManager::ConsoleShiftUp(std::string text) {
     // Submit new line of text after the up shift
     mConsoleText[0]->text = text;
     mConsoleTextObjects[0]->isActive = true;
-    mConsoleTimers[0] = 600;
+    mConsoleTimers[0] = mConsoleFadeOutTimer;
     
     MeshRenderer* meshRenderer = mConsoleTextObjects[0]->GetComponent<MeshRenderer>();
     meshRenderer->material->ambient.g = 1;
@@ -107,17 +150,21 @@ void EngineSystemManager::UpdateConsole(void) {
         
         mConsoleTimers[i]--;
         
-        if (mConsoleTimers[i] < 250) {
+        if (mConsoleDoFadeOutTexts) {
             
-            float fadeBias = mConsoleTimers[i] * 0.007;
+            if (mConsoleTimers[i] < mConsoleFadeOutTimer - 200) {
+                
+                float fadeBias = mConsoleTimers[i] * 0.007;
+                
+                MeshRenderer* meshRenderer = mConsoleTextObjects[i]->GetComponent<MeshRenderer>();
+                meshRenderer->material->ambient.g = fadeBias;
+                
+            }
             
-            MeshRenderer* meshRenderer = mConsoleTextObjects[i]->GetComponent<MeshRenderer>();
-            meshRenderer->material->ambient.g = fadeBias;
+            if (mConsoleTimers[i] < 1) 
+                mConsoleTextObjects[i]->isActive = false;
             
         }
-        
-        if (mConsoleTimers[i] < 1) 
-            mConsoleTextObjects[i]->isActive = false;
         
     }
     
@@ -179,7 +226,15 @@ void EngineSystemManager::UpdateConsole(void) {
             if (mConsoleString.size() < 1) 
                 return;
             
+            mConsoleString += " ";
+            
             std::vector<std::string> command = String.Explode(mConsoleString, ' ');
+            
+            // Get arguments
+            std::vector<std::string> args;
+            for (unsigned int i=0; i < command.size()-1; i++) {
+                args.push_back( command[i+1] );
+            }
             
             // Find the command function
             bool doesFunctionExist = false;
@@ -188,7 +243,7 @@ void EngineSystemManager::UpdateConsole(void) {
                 if (mConsoleCommands[i].name != command[0]) 
                     continue;
                 
-                mConsoleCommands[i].function( command );
+                mConsoleCommands[i].function( args );
                 
                 doesFunctionExist = true;
                 

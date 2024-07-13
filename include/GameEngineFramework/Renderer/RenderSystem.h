@@ -9,6 +9,7 @@
 #include <GameEngineFramework/Renderer/components/light.h>
 #include <GameEngineFramework/Renderer/components/material.h>
 #include <GameEngineFramework/Renderer/components/mesh.h>
+#include <GameEngineFramework/Renderer/components/submesh.h>
 #include <GameEngineFramework/Renderer/components/meshrenderer.h>
 #include <GameEngineFramework/Renderer/components/scene.h>
 #include <GameEngineFramework/Renderer/components/shader.h>
@@ -261,6 +262,8 @@ private:
     bool SortingPass(glm::vec3& eye, std::vector<MeshRenderer*>* renderQueueGroup, unsigned int queueGroupIndex);
     
     void LevelOfDetailPass(MeshRenderer* currentEntity, glm::vec3& eye);
+    
+    bool CullingPass(MeshRenderer* currentEntity, Camera* currentCamera);
     
     
     // Default assets

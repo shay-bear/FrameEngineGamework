@@ -38,7 +38,10 @@ public:
     /// Should the camera be rendered orthographically or perspective.
     bool isOrthographic;
     
-    /// Camera looking angle.
+    /// Camera mouse looking angle.
+    glm::vec2 mouseLookAngle;
+    
+    /// Current camera looking angles in degrees.
     glm::vec2 lookAngle;
     
     
@@ -53,6 +56,14 @@ public:
     
     /// Far camera clipping distance.
     float clipFar;
+    
+    
+    /// How far in degrees the frustum angles should overlap when culling.
+    float frustumOverlap;
+    
+    /// Distance behind the camera where culling should begin.
+    /// This prevents clipping when culling large objects.
+    float frustumOffset;
     
     
     /// Maximum pitch angle limit. (in radians)

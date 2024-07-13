@@ -26,13 +26,61 @@ ENGINE_API extern PlatformLayer     Platform;
 
 void EngineSystemManager::UpdateActor(unsigned int index) {
     
+    //
+    // Optimize out actor meshes at distance
+    
+    // Remove from scene
+    if (mStreamBuffer[index].actor->mDistance > AI.GetActorDetailDistance() - 10.0f) {
+        
+        if (mStreamBuffer[index].actor->mIsActorActiveInScene) {
+            
+            mStreamBuffer[index].actor->mIsActorActiveInScene = false;
+            
+            for (unsigned int a=0; a < mStreamBuffer[index].actor->mGeneticRenderers.size(); a++) {
+                
+                if (a == 0) 
+                    continue;
+                
+                MeshRenderer* meshRenderer = mStreamBuffer[index].actor->mGeneticRenderers[a];
+                
+                sceneMain->RemoveMeshRendererFromSceneRoot( meshRenderer, RENDER_QUEUE_DEFAULT );
+                
+            }
+        }
+        
+    }
+    
+    
+    // Add to scene
+    if (mStreamBuffer[index].actor->mDistance < AI.GetActorDetailDistance() + 10.0f) {
+        
+        if (!mStreamBuffer[index].actor->mIsActorActiveInScene) {
+            
+            mStreamBuffer[index].actor->mIsActorActiveInScene = true;
+            
+            for (unsigned int a=0; a < mStreamBuffer[index].actor->mGeneticRenderers.size(); a++) {
+                
+                if (a == 0) 
+                    continue;
+                
+                MeshRenderer* meshRenderer = mStreamBuffer[index].actor->mGeneticRenderers[a];
+                
+                sceneMain->AddMeshRendererToSceneRoot( meshRenderer, RENDER_QUEUE_DEFAULT );
+                
+            }
+            
+        }
+        
+    }
+    
     // Check walking state
     if (mStreamBuffer[index].actor->mIsWalking) {
         
         // Apply forward velocity
         glm::vec3 forward;
         
-        forward.x = cos( glm::radians( -(mStreamBuffer[index].actor->mRotation.y - 90) ) );
+        forward.x = cos( glm::radians( -(mStreamBuffer[index].actor->mRotation.y - 90.0f) ) );
+        // TODO: Actors should flying???
         //forward.y = tan( glm::radians( -(mStreamBuffer[index].actor->mRotation.x - 90) ) );
         forward.z = sin( glm::radians( -(mStreamBuffer[index].actor->mRotation.y - 90) ) );
         
@@ -96,8 +144,6 @@ void EngineSystemManager::UpdateActor(unsigned int index) {
     
     float distance = 1000;
     
-    bool isFalling = false;
-    
     // Move the actor out of the way since we cant cast a ray from inside the collider...
     rp3d::Transform transform = mStreamBuffer[index].rigidBody->getTransform();
     rp3d::Vector3 currentPosition = transform.getPosition();
@@ -114,8 +160,6 @@ void EngineSystemManager::UpdateActor(unsigned int index) {
         // Terminal velocity
         if (actorVelocity.y < -1) 
             actorVelocity.y = -1;
-        
-        isFalling = true;
         
     } else {
         
@@ -202,92 +246,119 @@ void EngineSystemManager::UpdateActorTargetRotation(unsigned int index) {
 
 void EngineSystemManager::UpdateActorGenetics(unsigned int index) {
     
-    if (mStreamBuffer[index].actor->mDoUpdateGenetics) {
+    if (!mStreamBuffer[index].actor->mDoUpdateGenetics) 
+        return;
+    
+    int numberOfGenes = mStreamBuffer[index].actor->GetNumberOfGenes();
+    
+    //
+    // Destroy and clear old genetic renderers
+    
+    mStreamBuffer[index].actor->mIsActorActiveInScene = false;
+    
+    for (unsigned int a=0; a < mStreamBuffer[index].actor->mGeneticRenderers.size(); a++) {
         
-        int numberOfGenes = mStreamBuffer[index].actor->GetNumberOfGenes();
+        MeshRenderer* geneRenderer = mStreamBuffer[index].actor->mGeneticRenderers[a];
         
-        //
-        // Destroy and clear old genetic renderers
+        // Destroy old material
+        if (geneRenderer->material != nullptr) 
+            Renderer.DestroyMaterial(geneRenderer->material);
         
-        for (unsigned int a=0; a < mStreamBuffer[index].actor->mGeneticRenderers.size(); a++) {
-            
-            MeshRenderer* geneRenderer = mStreamBuffer[index].actor->mGeneticRenderers[a];
-            
-            // Destroy old material
-            if (geneRenderer->material != nullptr) 
-                Renderer.DestroyMaterial(geneRenderer->material);
-            
-            sceneMain->RemoveMeshRendererFromSceneRoot( geneRenderer, RENDER_QUEUE_DEFAULT);
-            
-            Renderer.DestroyMeshRenderer( geneRenderer );
-            
+        sceneMain->RemoveMeshRendererFromSceneRoot( geneRenderer, RENDER_QUEUE_DEFAULT );
+        
+        Renderer.DestroyMeshRenderer( geneRenderer );
+        
+        continue;
+    }
+    
+    mStreamBuffer[index].actor->mGeneticRenderers.clear();
+    mStreamBuffer[index].actor->mAnimationStates.clear();
+    
+    
+    //
+    // Create and express genetic elements
+    //
+    
+    for (int a=0; a < numberOfGenes; a++) {
+        
+        if (!mStreamBuffer[index].actor->mGenes[a].doExpress) 
             continue;
-        }
         
-        mStreamBuffer[index].actor->mGeneticRenderers.clear();
-        mStreamBuffer[index].actor->mAnimationStates.clear();
+        // Generate a new mesh renderer for the gene
         
+        Material* newMaterial = Renderer.CreateMaterial();
+        newMaterial->shader = shaders.color;
+        newMaterial->diffuse.r = mStreamBuffer[index].actor->mGenes[a].color.x;
+        newMaterial->diffuse.g = mStreamBuffer[index].actor->mGenes[a].color.y;
+        newMaterial->diffuse.b = mStreamBuffer[index].actor->mGenes[a].color.z;
         
-        //
-        // Create and express genetic elements
-        //
+        float ambient = 0.01f;
+        newMaterial->ambient = Colors.Make(ambient, ambient, ambient);
         
-        for (int a=0; a < numberOfGenes; a++) {
+        MeshRenderer* newRenderer = Renderer.CreateMeshRenderer();
+        newRenderer->isActive = false;
+        
+        newRenderer->mesh     = meshes.cube;
+        newRenderer->material = newMaterial;
+        
+        newRenderer->EnableFrustumCulling();
+        
+        // Position
+        newRenderer->transform.position = mStreamBuffer[index].actor->mPosition;
+        
+        glm::vec3 offset(0);
+        glm::vec4 orientation(0);
+        
+        if (mStreamBuffer[index].actor->mGenes[a].attachmentIndex > 0) {
             
-            if (!mStreamBuffer[index].actor->mGenes[a].doExpress) 
-                continue;
-            
-            Material* newMaterial = Renderer.CreateMaterial();
-            newMaterial->shader = shaders.color;
-            newMaterial->diffuse.r = mStreamBuffer[index].actor->mGenes[a].color.x;
-            newMaterial->diffuse.g = mStreamBuffer[index].actor->mGenes[a].color.y;
-            newMaterial->diffuse.b = mStreamBuffer[index].actor->mGenes[a].color.z;
-            
-            newMaterial->ambient = Colors.white;
-            
-            MeshRenderer* newRenderer = Renderer.CreateMeshRenderer();
-            newRenderer->isActive = false;
-            
-            newRenderer->mesh = meshes.cube;
-            newRenderer->material = newMaterial;
-            
-            // Position
-            newRenderer->transform.position = mStreamBuffer[index].actor->mPosition;
+            unsigned int attachmentIndex = mStreamBuffer[index].actor->mGenes[a].attachmentIndex - 1;
             
             // Position offset
-            glm::vec3 offset( mStreamBuffer[index].actor->mGenes[a].offset.x, 
-                              mStreamBuffer[index].actor->mGenes[a].offset.y, 
-                              mStreamBuffer[index].actor->mGenes[a].offset.z );
+            mStreamBuffer[index].actor->mGenes[a].offset.x = mStreamBuffer[index].actor->mGenes[attachmentIndex].offset.x;
+            mStreamBuffer[index].actor->mGenes[a].offset.y = mStreamBuffer[index].actor->mGenes[attachmentIndex].offset.y;
+            mStreamBuffer[index].actor->mGenes[a].offset.z = mStreamBuffer[index].actor->mGenes[attachmentIndex].offset.z;
             
-            // Rotation
-            newRenderer->transform.RotateAxis( mStreamBuffer[index].actor->mGenes[a].rotation.x, glm::vec3(1, 0, 0) );
-            newRenderer->transform.RotateAxis( mStreamBuffer[index].actor->mGenes[a].rotation.y, glm::vec3(0, 1, 0) );
-            newRenderer->transform.RotateAxis( mStreamBuffer[index].actor->mGenes[a].rotation.z, glm::vec3(0, 0, 1) );
+            // Color
+            newMaterial->diffuse.r = mStreamBuffer[index].actor->mGenes[attachmentIndex].color.x;
+            newMaterial->diffuse.g = mStreamBuffer[index].actor->mGenes[attachmentIndex].color.y;
+            newMaterial->diffuse.b = mStreamBuffer[index].actor->mGenes[attachmentIndex].color.z;
             
-            // Scale
-            newRenderer->transform.scale.x = mStreamBuffer[index].actor->mGenes[a].scale.x;
-            newRenderer->transform.scale.y = mStreamBuffer[index].actor->mGenes[a].scale.y;
-            newRenderer->transform.scale.z = mStreamBuffer[index].actor->mGenes[a].scale.z;
+            // Animation state
+            mStreamBuffer[index].actor->mGenes[a].animationAxis = mStreamBuffer[index].actor->mGenes[attachmentIndex].animationAxis;
+            mStreamBuffer[index].actor->mGenes[a].animationRange = mStreamBuffer[index].actor->mGenes[attachmentIndex].animationRange;
+            mStreamBuffer[index].actor->mGenes[a].doAnimationCycle = mStreamBuffer[index].actor->mGenes[attachmentIndex].doAnimationCycle;
+            mStreamBuffer[index].actor->mGenes[a].doInverseAnimation = mStreamBuffer[index].actor->mGenes[attachmentIndex].doInverseAnimation;
             
-            Transform transform;
-            
-            
-            glm::vec4 orientation(transform.rotation.w, 
-                                  transform.rotation.x, 
-                                  transform.rotation.y, 
-                                  transform.rotation.z);
-            
-            mStreamBuffer[index].actor->mGeneticRenderers.push_back( newRenderer );
-            mStreamBuffer[index].actor->mAnimationStates .push_back( orientation );
-            
-            sceneMain->AddMeshRendererToSceneRoot( newRenderer );
-            
-            continue;
         }
         
-        mStreamBuffer[index].actor->mDoUpdateGenetics = false;
+        // Scale
+        newRenderer->transform.scale.x = mStreamBuffer[index].actor->mGenes[a].scale.x;
+        newRenderer->transform.scale.y = mStreamBuffer[index].actor->mGenes[a].scale.y;
+        newRenderer->transform.scale.z = mStreamBuffer[index].actor->mGenes[a].scale.z;
         
+        // Rotation
+        newRenderer->transform.RotateAxis( mStreamBuffer[index].actor->mGenes[a].rotation.x, glm::vec3(1, 0, 0) );
+        newRenderer->transform.RotateAxis( mStreamBuffer[index].actor->mGenes[a].rotation.y, glm::vec3(0, 1, 0) );
+        newRenderer->transform.RotateAxis( mStreamBuffer[index].actor->mGenes[a].rotation.z, glm::vec3(0, 0, 1) );
+        
+        // Default animation orientation
+        Transform transform;
+        
+        orientation = glm::vec4( transform.rotation.w, 
+                                 transform.rotation.x, 
+                                 transform.rotation.y, 
+                                 transform.rotation.z );
+        
+        mStreamBuffer[index].actor->mGeneticRenderers.push_back( newRenderer );
+        mStreamBuffer[index].actor->mAnimationStates .push_back( orientation );
+        
+        if (a == 0) 
+            sceneMain->AddMeshRendererToSceneRoot( newRenderer, RENDER_QUEUE_DEFAULT );
+        
+        continue;
     }
+    
+    mStreamBuffer[index].actor->mDoUpdateGenetics = false;
     
     return;
 }
@@ -301,8 +372,6 @@ void EngineSystemManager::UpdateActorGenetics(unsigned int index) {
 
 void EngineSystemManager::UpdateActorAnimation(unsigned int index) {
     
-    
-    
     //
     // Update animations
     //
@@ -310,8 +379,6 @@ void EngineSystemManager::UpdateActorAnimation(unsigned int index) {
     for (unsigned int a=0; a < mStreamBuffer[index].actor->mGeneticRenderers.size(); a++) {
         
         MeshRenderer* geneRenderer = mStreamBuffer[index].actor->mGeneticRenderers[a];
-        
-        geneRenderer->isActive = true;
         
         geneRenderer->transform.position = mStreamBuffer[index].actor->mPosition;
         
@@ -366,6 +433,9 @@ void EngineSystemManager::UpdateActorAnimation(unsigned int index) {
             
             continue;
         }
+        
+        if (!mStreamBuffer[index].actor->mIsActorActiveInScene) 
+            continue;
         
         // Rotate current animation state
         glm::vec4 animationFactor(mStreamBuffer[index].actor->mGenes[a].animationAxis.x, 

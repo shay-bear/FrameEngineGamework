@@ -74,7 +74,6 @@ void RenderSystem::RenderFrame(void) {
             if (renderQueueGroup->size() == 0) 
                 continue;
             
-            
             //
             // Sorting
             
@@ -88,10 +87,14 @@ void RenderSystem::RenderFrame(void) {
                 
                 MeshRenderer* currentEntity = *(renderQueueGroup->data() + i);
                 
-                if (!currentEntity->isActive) 
-                    continue;
+                bool isCulled = false;
                 
-                GeometryPass( currentEntity, eye, scenePtr->camera->forward, viewProjection );
+                if (currentEntity->mDoCulling) 
+                    isCulled = CullingPass(currentEntity, scenePtr->camera);
+                
+                // Render geometry if not culled
+                if (!isCulled) 
+                    GeometryPass( currentEntity, eye, scenePtr->camera->forward, viewProjection );
                 
                 continue;
             }
@@ -107,9 +110,6 @@ void RenderSystem::RenderFrame(void) {
                 for (unsigned int i=0; i < renderQueueGroup->size(); i++) {
                     
                     MeshRenderer* currentEntity = *(renderQueueGroup->data() + i);
-                    
-                    if (!currentEntity->isActive) 
-                        continue;
                     
                     ShadowVolumePass( currentEntity, eye, scenePtr->camera->forward, viewProjection );
                     

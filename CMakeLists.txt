@@ -13,7 +13,6 @@ option(BUILD_CORE_ENGINE "Project will build the core engine library" OFF)
 
 option(EVENT_LOG_DETAILED   "Log events out to the event log file." OFF)
 option(RUN_UNIT_TESTS       "Run unit tests at application start." OFF)
-option(PROFILE_ENGINE_CORE  "Profile the engine`s core systems." OFF)
 
 
 
@@ -28,11 +27,6 @@ endif()
 if(RUN_UNIT_TESTS)
     add_compile_definitions(RUN_UNIT_TESTS)
 endif()
-
-if(PROFILE_ENGINE_CORE)
-    add_compile_definitions(PROFILE_ENGINE_CORE)
-endif()
-
 
 
 
@@ -61,7 +55,6 @@ set (RUNTIME_HEADERS
     "include/GameEngineFramework/ActorAI/genetics/gene.h"
     "include/GameEngineFramework/ActorAI/genetics/base.h"
     "include/GameEngineFramework/ActorAI/components/actor.h"
-    "include/GameEngineFramework/ActorAI/components/plant.h"
     "include/GameEngineFramework/ActorAI/neurons/NeuralLayer.h"
     "include/GameEngineFramework/ActorAI/neurons/WeightedLayer.h"
     
@@ -109,6 +102,7 @@ set (RUNTIME_HEADERS
     "include/GameEngineFramework/Renderer/components/meshrenderer.h"
     "include/GameEngineFramework/Renderer/components/material.h"
     "include/GameEngineFramework/Renderer/components/mesh.h"
+    "include/GameEngineFramework/Renderer/components/submesh.h"
     "include/GameEngineFramework/Renderer/components/scene.h"
     "include/GameEngineFramework/Renderer/components/light.h"
     "include/GameEngineFramework/Renderer/components/shader.h"
@@ -200,7 +194,9 @@ set (GAME_HEADERS
     "include/GameEngineFramework/Application/winproc.h"
     "include/GameEngineFramework/Application/main.h"
     
-    "include/GameEngineFramework/plugins/ChunkManager.h"
+    "include/GameEngineFramework/plugins/ChunkSpawner/ChunkManager.h"
+    "include/GameEngineFramework/plugins/ChunkSpawner/Chunk.h"
+    "include/GameEngineFramework/plugins/ChunkSpawner/Perlin.h"
     
     "include/GameEngineFramework/Audio/AudioSystem.h"
     
@@ -210,7 +206,6 @@ set (GAME_HEADERS
     "include/GameEngineFramework/ActorAI/genetics/gene.h"
     "include/GameEngineFramework/ActorAI/genetics/base.h"
     "include/GameEngineFramework/ActorAI/components/actor.h"
-    "include/GameEngineFramework/ActorAI/components/plant.h"
     "include/GameEngineFramework/ActorAI/neurons/NeuralLayer.h"
     "include/GameEngineFramework/ActorAI/neurons/WeightedLayer.h"
     
@@ -259,6 +254,7 @@ set (GAME_HEADERS
     "include/GameEngineFramework/Renderer/components/meshrenderer.h"
     "include/GameEngineFramework/Renderer/components/material.h"
     "include/GameEngineFramework/Renderer/components/mesh.h"
+    "include/GameEngineFramework/Renderer/components/submesh.h"
     "include/GameEngineFramework/Renderer/components/scene.h"
     "include/GameEngineFramework/Renderer/components/light.h"
     "include/GameEngineFramework/Renderer/components/shader.h"
@@ -346,7 +342,6 @@ set (CORE_HEADERS
     "include/GameEngineFramework/ActorAI/genetics/gene.h"
     "include/GameEngineFramework/ActorAI/genetics/base.h"
     "include/GameEngineFramework/ActorAI/components/actor.h"
-    "include/GameEngineFramework/ActorAI/components/plant.h"
     "include/GameEngineFramework/ActorAI/neurons/NeuralLayer.h"
     "include/GameEngineFramework/ActorAI/neurons/WeightedLayer.h"
     
@@ -395,6 +390,7 @@ set (CORE_HEADERS
     "include/GameEngineFramework/Renderer/components/meshrenderer.h"
     "include/GameEngineFramework/Renderer/components/material.h"
     "include/GameEngineFramework/Renderer/components/mesh.h"
+    "include/GameEngineFramework/Renderer/components/submesh.h"
     "include/GameEngineFramework/Renderer/components/scene.h"
     "include/GameEngineFramework/Renderer/components/light.h"
     "include/GameEngineFramework/Renderer/components/shader.h"
@@ -455,11 +451,11 @@ set (CORE_SOURCES
     "src/Engine/types/viewport.cpp"
     
     "src/ActorAI/ActorSystem.cpp"
+    "src/ActorAI/ActorUpdate.cpp"
     "src/ActorAI/GeneticPresets.cpp"
     "src/ActorAI/genetics/gene.cpp"
     "src/ActorAI/genetics/base.cpp"
     "src/ActorAI/components/actor.cpp"
-    "src/ActorAI/components/plant.cpp"
     "src/ActorAI/neurons/NeuralLayer.cpp"
     "src/ActorAI/neurons/WeightedLayer.cpp"
     
@@ -502,6 +498,7 @@ set (CORE_SOURCES
     "src/Renderer/pipeline/passGeometry.cpp"
     "src/Renderer/pipeline/passShadowVolume.cpp"
     "src/Renderer/pipeline/passSorting.cpp"
+    "src/Renderer/pipeline/passCulling.cpp"
     
     "src/Resources/FileLoader.cpp"
     "src/Resources/FileSystem.cpp"

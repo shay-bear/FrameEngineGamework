@@ -35,13 +35,21 @@ public:
     /// Transformation element.
     Transform transform;
     
+    /// Enable culling for this entity
+    void EnableFrustumCulling(void);
+    
+    /// Disable culling for this entity
+    void DisableFrustumCulling(void);
+    
     MeshRenderer();
     
 private:
     
+    // Should this renderer be culled
+    bool mDoCulling;
+    
     friend class RenderSystem;
     
 };
-
 
 #endif

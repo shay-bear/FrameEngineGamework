@@ -33,7 +33,8 @@
 
 #include <GameEngineFramework/Networking/NetworkSystem.h>
 
-#define  CONSOLE_NUMBER_OF_ELEMENTS  32
+#define  CONSOLE_NUMBER_OF_ELEMENTS   32
+#define  PROFILER_NUMBER_OF_ELEMENTS  24
 
 
 #ifndef BUILD_CORE
@@ -80,6 +81,9 @@ public:
     
     /// Overlay rendering scene. (For UI elements)
     Scene* sceneOverlay;
+    
+    /// Assigned game object acting as a camera controller object.
+    GameObject* cameraController;
     
     
     // Game objects
@@ -137,11 +141,23 @@ public:
     /// Disable and deactivate the rendering of the console text elements.
     void DisableConsole(void);
     
+    /// Return whether the console is currently active
+    bool CheckIsConsoleActive(void);
+    
     /// Enable console back panel.
     void EnableConsoleBackPanel(void);
     
     /// Disable console back panel.
     void DisableConsoleBackPanel(void);
+    
+    /// Enable the fade out of text elements after a period of time.
+    void EnableConsoleFadeOutTextElements(void);
+    
+    /// Disable the fade out of text elements after a period of time.
+    void DisableConsoleFadeOutTextElements(void);
+    
+    /// Set the number of frames after which the text element will begin fading out.
+    void SetConsoleFadeOutTimer(unsigned int numberOfFrames);
     
     /// Enable automatic close after a command is entered.
     void EnableConsoleCloseOnReturn(void);
@@ -162,9 +178,18 @@ public:
     void ConsoleShiftUp(std::string text);
     
     
-    //
+    // Profiler
+    
+    /// Allow the profiler to print the results to the display.
+    void EnableProfiler(void);
+    
+    /// Disable the profiler from printing to the display.
+    void DisableProfiler(void);
+    
+    /// Return whether the profiler is currently active
+    bool CheckIsProfilerActive(void);
+    
     // Lower level UI rendering
-    //
     
     /// Add a string of sprite quads to a mesh.
     void AddMeshText(GameObject* overlayObject, float xPos, float yPos, float width, float height, std::string text, Color textColor);
@@ -172,10 +197,7 @@ public:
     /// Add a quad to a mesh mapping to a sub sprite from a sprite sheet texture.
     void AddMeshSubSprite(GameObject* overlayObject, float xPos, float yPos, float width, float height, int index, Color meshColor);
     
-    
-    //
     // Height field chunk generation
-    //
     
     // Perlin generation
     
@@ -184,6 +206,9 @@ public:
     
     /// Add a layer of perlin noise into a height field.
     void AddHeightFieldFromPerlinNoise(float* heightField, unsigned int width, unsigned int height, float noiseWidth, float noiseHeight, float noiseMul, int offsetX, int offsetZ);
+    
+    /// Average a layer of perlin noise into a height field.
+    void AverageHeightFieldFromPerlinNoise(float* heightField, unsigned int width, unsigned int height, float noiseWidth, float noiseHeight, float noiseMul, int offsetX, int offsetZ);
     
     // Color field
     
@@ -204,7 +229,7 @@ public:
     // Mapping to a mesh
     
     /// Apply the height field values to a mesh.
-    void AddHeightFieldToMesh(Mesh* mesh, float* heightField, glm::vec3* colorField, unsigned int width, unsigned int height, float offsetX, float offsetZ);
+    void AddHeightFieldToMesh(Mesh* mesh, float* heightField, glm::vec3* colorField, unsigned int width, unsigned int height, float offsetX, float offsetZ, unsigned int subTessX=1.0f, unsigned int subTessZ=1.0f);
     
     /// Generate a height field mesh from perlin noise.
     Mesh* CreateMeshFromHeightField(float* heightField, glm::vec3* colorField, unsigned int width, unsigned int height, float offsetX, float offsetZ);
@@ -322,12 +347,26 @@ private:
     // Process the objects marked as garbage
     void ProcessDeferredDeletion(void);
     
+    
+    //
+    // Profiler
+    
+    bool mIsProfilerEnabled;
+    
+    GameObject* mProfilerTextObjects[PROFILER_NUMBER_OF_ELEMENTS];
+    
+    Text* mProfilerText[PROFILER_NUMBER_OF_ELEMENTS];
+    
+    
     //
     // Console
     
     bool mIsConsoleEnabled;
     bool mShowConsoleBackPanel;
     bool mConsoleCloseAfterCommandEntered;
+    bool mConsoleDoFadeOutTexts;
+    
+    unsigned int mConsoleFadeOutTimer;
     
     std::string mConsolePrompt;
     std::string mConsoleString;
@@ -413,12 +452,23 @@ private:
     };
     
     struct DefaultMeshes {
+        
+        Mesh* grassHorz = nullptr;
+        Mesh* grassVert = nullptr;
+        
+        Mesh* stemHorz = nullptr;
+        Mesh* stemVert = nullptr;
+        
+        Mesh* wallHorizontal = nullptr;
+        Mesh* wallVertical = nullptr;
+        
+        Mesh* log = nullptr;
+        
         Mesh* cube = nullptr;
         Mesh* chunk = nullptr;
         Mesh* plain = nullptr;
         Mesh* sphere = nullptr;
-        Mesh* wallHorizontal = nullptr;
-        Mesh* wallVertical = nullptr;
+        
     };
     
     
